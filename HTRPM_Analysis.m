@@ -101,7 +101,7 @@ if Df>=0.4
         j = Df/2.*j + Yin_hcp(h);
         k = Df/2.*k + Zin_hcp(h);
         surface(i,j,k);
-        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_hcp))
+        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_basic))
     end
 
     hold off;
