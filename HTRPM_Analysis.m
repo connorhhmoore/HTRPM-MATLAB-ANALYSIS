@@ -12,7 +12,7 @@ k_graphite = 50.8; % [W/(m⋅K)­­­]
 % https://mooseframework.inl.gov/bison/source/materials/GraphiteMatrixThermal.html
 
 % Spherical fuel pellet parameters
-Df = 4e-1;      % Diameter of fuel pellet [m]
+Df = 6e-2;      % Diameter of fuel pellet [m]
 As = pi*Df^2;   % Surface area of fuel pellet [m²]
 Vf = 4/3*pi*(Df/2)^3;
 
@@ -88,7 +88,7 @@ if Df>=0.4
     % Plot the geometry
     alpha = 0.12;
 
-    % Plotting flat/box stacking --------------------------------------------
+    % Plotting HCP stacking --------------------------------------------
     figure(Name="HCP Stacking");
     surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none');
     hold on;
@@ -101,7 +101,7 @@ if Df>=0.4
         j = Df/2.*j + Yin_hcp(h);
         k = Df/2.*k + Zin_hcp(h);
         surface(i,j,k);
-        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_basic))
+        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_hcp))
     end
 
     hold off;
@@ -111,7 +111,7 @@ if Df>=0.4
     ylabel('{\ity} [m]');
     zlabel('{\itz} [m]');
 
-    % Plotting HCP stacking ------------------------------------------------
+    % Plotting flat/box stacking ------------------------------------------------
     figure(Name="Basic Stacking")
     surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none');
     hold on;
@@ -124,7 +124,7 @@ if Df>=0.4
         j = Df/2.*j + Yin_basic(h);
         k = Df/2.*k + Zin_basic(h);
         surface(i,j,k);
-        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_hcp))
+        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_basic))
     end
 
     hold off;
