@@ -1,9 +1,10 @@
 %% Analysis of Sphere Packing in the HTR-PM Reactor
 % Connor Moore, <connor.moore@ontariotechu.net>, 2024-2025
 close all; clear;
+tic;
 % Reactor core parameters
 Dc   = 3;           % Diameter of Core
-Hc   = 11;          % Height of core [m]
+Hc   = 11;%11;          % Height of core [m]
 Vc = pi/4*Dc^2*Hc;  % Volume of core [m³]
 npts = 50;          % Cylinder discretization
 capacity = 250e6;   % Thermal capacity [W]
@@ -28,8 +29,8 @@ T_max_real = e_gen_real*(Df/2)^2/(6*k_graphite);
 
 % Max side length
 Nmax = floorDiv(Dc,Df);   % Maximum number of side:to:side pellets
-
-[Xf,Yf,Zf] = meshgrid(-Nmax/2:Nmax/2,-Nmax/2:Nmax/2,0:Hc/Df*30);
+ext=4;
+[Xf,Yf,Zf] = meshgrid(-Nmax/2*ext:Nmax/2*ext,-Nmax/2*ext:Nmax/2*ext,0:Hc/Df*ext);
 
 Xf = Xf.*Df;
 Yf = Yf.*Df;
@@ -59,7 +60,6 @@ Zf_bcc = Zf;
 % Applying transforms to correct:
 Xf_bcc(:,:,2:2:end) = Xf(:,:,2:2:end) + Df/2;
 Yf_bcc(:,:,2:2:end) = Yf(:,:,2:2:end) + Df/2;
-%Zf_bcc(:,:,2:2:end) = Zf(:,:,2:2:end); %+ sqrt(Df^2-Df^2/2);
 
 % Displace all sheets to hug each other
 for i = 2:numel(unique(Zf_bcc))
@@ -79,6 +79,48 @@ Zin_bcc = Zf_bcc(key);
 N_bcc = nnz(key);
 As_bcc = N_bcc*As;
 
+%% For HCP Packing ------------------------------------------------------
+
+Xf_hcp = Xf;
+Yf_hcp = Yf;
+Zf_hcp = Zf;
+
+Xf_hcp(2:2:end,:,:)=Xf_hcp(2:2:end,:,:)-0.5*Df;
+Yf_hcp(2:2:end,:,:)=Yf_hcp(2:2:end,:,:)-(Df-sqrt(Df^2-Df^2/4));
+
+for i = 1:2:numel(unique(Yf_hcp))
+    Yf_hcp(i:end,:,:)=Yf_hcp(i:end,:,:)-(2*Df-2*sqrt(Df^2-Df^2/4));
+end
+Xf_hcp(:,:,2:3:end)=Xf_hcp(:,:,2:3:end)-0.5*Df;
+Yf_hcp(:,:,2:3:end)=Yf_hcp(:,:,2:3:end)+Df/(2*sqrt(3));
+
+Xf_hcp(:,:,3:3:end)=Xf_hcp(:,:,3:3:end)-0.5*Df;
+Yf_hcp(:,:,3:3:end)=Yf_hcp(:,:,3:3:end)-Df/(2*sqrt(3));
+
+for i = 2:numel(unique(Zf_bcc))
+    Zf_hcp(:,:,i:end) = Zf_hcp(:,:,i:end) - (Df - sqrt(6)/3*Df);
+    fprintf("%i/%i HCP displacement calculation\n",i,numel(unique(Zf_hcp)));
+end
+
+% Calculate internal points
+inside_rad = sqrt(Xf_hcp(:).^2 + Yf_hcp(:).^2) <= Dc/2-Df/2;
+inside_height = Zf_hcp(:) < Hc-(Df/2);
+key = and(inside_rad,inside_height);
+
+Xin_hcp = Xf_hcp(key);
+Yin_hcp = Yf_hcp(key);
+Zin_hcp = Zf_hcp(key);
+
+N_hcp = nnz(key);
+As_hcp = N_hcp*As;
+
+
+% Apply transforms to correct
+% Shifting +0.5*Df every other row in x-dir
+% +(Df-√(Df²-Df²/4)) PROG every other in y-dir
+
+
+
 % For non-tiny pebble diameters, plot the geometry
 if Df>=0.4
     %% Generate 3D plot of the packing problem ------------------------------
@@ -88,32 +130,6 @@ if Df>=0.4
     % Plot the geometry
     alpha = 0.03;
 
-    % Plotting BCC stacking --------------------------------------------
-    figure(Name="BCC Stacking");
-    surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none','FaceColor','b');
-    hold on;
-    patch(X(1,:),Y(1,:),Z(1,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
-    patch(X(2,:),Y(2,:),Z(2,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
-
-    for h = 1:numel(Xin_bcc)
-        [i,j,k] = sphere(16);
-        i = Df/2.*i + Xin_bcc(h);
-        j = Df/2.*j + Yin_bcc(h);
-        k = Df/2.*k + Zin_bcc(h);
-        surface(i,j,k);
-        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_bcc))
-    end
-
-    hold off;
-    grid on;
-    axis equal;
-    colormap([linspace(1,.5)',linspace(0,.5)',linspace(0,.5)'])
-    c = colorbar('Ticks',[0,5.5,10.82],'TickLabels',[800,550,300]);
-    c.Label.String='Approximate Temperature [°C]';
-    xlabel('{\itx} [m]');
-    ylabel('{\ity} [m]');
-    zlabel('{\itz} [m]');
-%{
     % Plotting flat/box stacking ------------------------------------------------
     figure(Name="Basic Stacking")
     surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none');
@@ -136,7 +152,60 @@ if Df>=0.4
     xlabel('{\itx} [m]');
     ylabel('{\ity} [m]');
     zlabel('{\itz} [m]');
-%}
+
+    % Plotting BCC stacking --------------------------------------------
+    figure(Name="BCC Stacking");
+    surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none','FaceColor','b');
+    hold on;
+    patch(X(1,:),Y(1,:),Z(1,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
+    patch(X(2,:),Y(2,:),Z(2,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
+
+    for h = 1:numel(Xin_bcc)
+        [i,j,k] = sphere(12);
+        i = Df/2.*i + Xin_bcc(h);
+        j = Df/2.*j + Yin_bcc(h);
+        k = Df/2.*k + Zin_bcc(h);
+        surface(i,j,k);
+        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_bcc))
+    end
+
+    hold off;
+    grid on;
+    axis equal;
+    %{
+    colormap([linspace(1,.5)',linspace(0,.5)',linspace(0,.5)'])
+    c = colorbar('Ticks',[0,5.5,10.82],'TickLabels',[800,550,300]);
+    c.Label.String='Approximate Temperature [°C]';
+    %}
+    xlabel('{\itx} [m]');
+    ylabel('{\ity} [m]');
+    zlabel('{\itz} [m]');
+
+    % Plotting HCP stacking --------------------------------------------
+    figure(Name="HCP Stacking");
+    surf(X,Y,Z,'FaceAlpha',alpha,'EdgeColor','none','FaceColor','b');
+    hold on;
+    patch(X(1,:),Y(1,:),Z(1,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
+    patch(X(2,:),Y(2,:),Z(2,:),'b','facealpha',alpha,'edgecolor','none','FaceColor','b');
+
+    for h = 1:numel(Xin_hcp)
+        [i,j,k] = sphere(12);
+        i = Df/2.*i + Xin_hcp(h);
+        j = Df/2.*j + Yin_hcp(h);
+        k = Df/2.*k + Zin_hcp(h);
+        surface(i,j,k);
+        fprintf("%i/%i sphere display calculation\n",h,numel(Xin_hcp))
+    end
+
+    hold off;
+    grid on;
+    axis equal;
+    xlabel('{\itx} [m]');
+    ylabel('{\ity} [m]');
+    zlabel('{\itz} [m]');
+
+
+
 end
 
 %% Flow area calculations
@@ -177,6 +246,8 @@ text(bounds_bcc(4),XS_area_avg_bcc+0.05,"Avg. "+XS_area_avg_bcc+" [m²]",...
 hold off
 
 %% Output and postprocessing --------------------------------------------
+time = toc;
+clc;
 
 q_basic = capacity/As_basic;
 dens_basic = N_basic/Vc;
@@ -184,7 +255,11 @@ dens_basic = N_basic/Vc;
 q_bcc = capacity/As_bcc;
 dens_bcc = N_bcc/Vc;
 
-fprintf(" Calculated values using a core D/H (%3.2f [m])/(%3.2f [m]).\n Fuel diameter %3.2f [m].\n",Dc,Hc,Df);
+q_hcp = capacity/As_hcp;
+dens_hcp = N_hcp/Vc;
+
+fprintf(" Calculated values using a core D/H (%3.2f [m])/(%3.2f [m]).\n Fuel pebble diameter %3.2f [m].\n",Dc,Hc,Df);
+fprintf(" Calculation time of %i seconds with ext = %i\n",time,ext);
 
 fprintf("\n ======== Basic stacking (box/cube stacking) pattern ========\n")
 fprintf("  -> Total number of contained pellets: %i [n]\n",N_basic);
@@ -194,13 +269,21 @@ fprintf("  -> Average number of pellets per cubic meter: %3.2f [n/m³]\n",dens_b
 fprintf("  -> Average number of pellets per sheet: %3.2f [n/sheet]\n",N_basic./(numel(unique(Zin_basic))));
 fprintf("  -> Volume packing efficiency: %3.2f [%%]\n",N_basic*Vf/Vc*100);
 
-fprintf("\n ======== BCC-style stacking (sheet-based stacking) pattern ========\n")
+fprintf("\n ======== BCC-style stacking (ABAB sheet-based stacking) pattern ========\n")
 fprintf("  -> Total number of contained pellets: %i [n]\n",N_bcc);
 fprintf("  -> Total surface area of all pellets: %3.2f [m²]\n",As_bcc);
 fprintf("  -> Calculated surface heat flux of the core: %3.2f [W/m²]\n",q_bcc);
 fprintf("  -> Average number of pellets per cubic meter: %3.2f [n/m³]\n",dens_bcc);
 fprintf("  -> Average number of pellets per sheet: %3.2f [n/sheet]\n",N_bcc./(numel(unique(Zin_bcc))));
 fprintf("  -> Volume packing efficiency: %3.2f [%%]\n",N_bcc*Vf/Vc*100);
+
+fprintf("\n ======== HCP-style stacking (ABCABC sheet-based stacking) pattern ========\n")
+fprintf("  -> Total number of contained pellets: %i [n]\n",N_hcp);
+fprintf("  -> Total surface area of all pellets: %3.2f [m²]\n",As_hcp);
+fprintf("  -> Calculated surface heat flux of the core: %3.2f [W/m²]\n",q_hcp);
+fprintf("  -> Average number of pellets per cubic meter: %3.2f [n/m³]\n",dens_hcp);
+fprintf("  -> Average number of pellets per sheet: %3.2f [n/sheet]\n",N_hcp./(numel(unique(Zin_hcp))));
+fprintf("  -> Volume packing efficiency: %3.2f [%%]\n",N_hcp*Vf/Vc*100);
 
 fprintf("\n ======== Real analysis (no stacking calculation) ========\n")
 fprintf("  -> Total claimed number of pellets: %i [n]\n",N_real)
